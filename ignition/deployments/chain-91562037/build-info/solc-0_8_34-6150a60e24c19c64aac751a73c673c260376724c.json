@@ -1,0 +1,49 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_34-6150a60e24c19c64aac751a73c673c260376724c",
+  "solcVersion": "0.8.34",
+  "solcLongVersion": "0.8.34+commit.80d5c536",
+  "compilerType": "solc",
+  "toolVersions": {
+    "hardhat": "3.18.0"
+  },
+  "userSourceNameMap": {
+    "contracts/DigitalLegacyVault.sol": "project/contracts/DigitalLegacyVault.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "osaka",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/DigitalLegacyVault.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.28;\r\n\r\n/**\r\n * @title DigitalLegacyVault\r\n * @notice Decentralized Dead Man's Switch requiring dual confirmation:\r\n *         1. Inactivity period expired (lastPing + pingInterval <= block.timestamp)\r\n *         2. At least 2 out of 3 trustees approve the release on-chain.\r\n */\r\ncontract DigitalLegacyVault {\r\n\r\n    // Simple built-in reentrancy guard (zero external dependencies)\r\n    uint256 private _status;\r\n    modifier nonReentrant() {\r\n        require(_status != 2, \"ReentrancyGuard: reentrant call\");\r\n        _status = 2;\r\n        _;\r\n        _status = 1;\r\n    }\r\n\r\n    struct Vault {\r\n        address owner;\r\n        address beneficiary;          // Beneficiary who receives the digital legacy\r\n        string secretDataOrIpfs;      // Encrypted message, password, or IPFS CID\r\n        uint256 pingInterval;         // Inactivity window in seconds (e.g. 60s for demo, 30 days for prod)\r\n        uint256 lastPing;             // Unix timestamp of the last owner check-in\r\n        uint8 requiredApprovals;      // Set to 2 (2 out of 3)\r\n        uint8 currentApprovals;       // Current count of trustee approvals\r\n        bool isReleased;              // True once unlocked\r\n        bool isCanceled;              // True if owner cancels vault\r\n    }\r\n\r\n    uint256 public vaultCount;\r\n    mapping(uint256 => Vault) public vaults;\r\n    mapping(uint256 => address[]) private _vaultTrustees;\r\n    mapping(uint256 => mapping(address => bool)) public isTrustee;\r\n    mapping(uint256 => mapping(address => bool)) public hasApproved;\r\n\r\n    // Events for frontend indexing & on-chain verification\r\n    event VaultCreated(uint256 indexed vaultId, address indexed owner, address indexed beneficiary, uint256 pingInterval);\r\n    event CheckedIn(uint256 indexed vaultId, uint256 newLastPing);\r\n    event TrusteeApproved(uint256 indexed vaultId, address indexed trustee, uint8 totalApprovals);\r\n    event VaultReleased(uint256 indexed vaultId, string secretDataOrIpfs, address indexed beneficiary);\r\n    event VaultCanceled(uint256 indexed vaultId);\r\n\r\n    modifier onlyVaultOwner(uint256 _vaultId) {\r\n        require(vaults[_vaultId].owner == msg.sender, \"Caller is not the vault owner\");\r\n        _;\r\n    }\r\n\r\n    constructor() {\r\n        _status = 1;\r\n    }\r\n\r\n    /**\r\n     * @notice Owner creates a vault with 3 trusted trustees and a 2-of-3 approval threshold.\r\n     */\r\n    function createVault(\r\n        address _beneficiary,\r\n        address[] calldata _trustees,\r\n        uint8 _requiredApprovals,\r\n        uint256 _pingInterval,\r\n        string calldata _secretDataOrIpfs\r\n    ) external returns (uint256) {\r\n        require(_beneficiary != address(0), \"Invalid beneficiary address\");\r\n        require(_beneficiary != msg.sender, \"Beneficiary cannot be owner\");\r\n        require(_trustees.length == 3, \"Must configure exactly 3 trustees\");\r\n        require(_requiredApprovals == 2, \"Required approvals must be 2 (2-of-3)\");\r\n        require(_pingInterval >= 30, \"Interval must be >= 30 seconds\");\r\n        require(bytes(_secretDataOrIpfs).length > 0, \"Secret data cannot be empty\");\r\n\r\n        uint256 currentId = ++vaultCount;\r\n\r\n        vaults[currentId] = Vault({\r\n            owner: msg.sender,\r\n            beneficiary: _beneficiary,\r\n            secretDataOrIpfs: _secretDataOrIpfs,\r\n            pingInterval: _pingInterval,\r\n            lastPing: block.timestamp,\r\n            requiredApprovals: _requiredApprovals,\r\n            currentApprovals: 0,\r\n            isReleased: false,\r\n            isCanceled: false\r\n        });\r\n\r\n        for (uint256 i = 0; i < 3; i++) {\r\n            address t = _trustees[i];\r\n            require(t != address(0), \"Trustee cannot be zero address\");\r\n            require(t != msg.sender, \"Owner cannot be a trustee\");\r\n            require(!isTrustee[currentId][t], \"Duplicate trustee address\");\r\n\r\n            isTrustee[currentId][t] = true;\r\n            _vaultTrustees[currentId].push(t);\r\n        }\r\n\r\n        emit VaultCreated(currentId, msg.sender, _beneficiary, _pingInterval);\r\n        return currentId;\r\n    }\r\n\r\n    /**\r\n     * @notice Owner check-in resets the timer and resets any premature trustee approvals.\r\n     */\r\n    function checkIn(uint256 _vaultId) external onlyVaultOwner(_vaultId) {\r\n        Vault storage vault = vaults[_vaultId];\r\n        require(!vault.isReleased, \"Vault already released\");\r\n        require(!vault.isCanceled, \"Vault canceled\");\r\n\r\n        vault.lastPing = block.timestamp;\r\n\r\n        // If trustees voted while owner was away, but owner returns before release:\r\n        if (vault.currentApprovals > 0) {\r\n            vault.currentApprovals = 0;\r\n            address[] memory trustees = _vaultTrustees[_vaultId];\r\n            for (uint256 i = 0; i < trustees.length; i++) {\r\n                hasApproved[_vaultId][trustees[i]] = false;\r\n            }\r\n        }\r\n\r\n        emit CheckedIn(_vaultId, block.timestamp);\r\n    }\r\n\r\n    /**\r\n     * @notice Trustee submits an approval when owner is inactive past the timeout.\r\n     */\r\n    function trusteeApprove(uint256 _vaultId) external {\r\n        Vault storage vault = vaults[_vaultId];\r\n        require(!vault.isReleased, \"Vault already released\");\r\n        require(!vault.isCanceled, \"Vault canceled\");\r\n        require(isTrustee[_vaultId][msg.sender], \"Caller is not a designated trustee\");\r\n        require(!hasApproved[_vaultId][msg.sender], \"Trustee already approved\");\r\n        require(block.timestamp >= vault.lastPing + vault.pingInterval, \"Owner is still active (timeout not reached)\");\r\n\r\n        hasApproved[_vaultId][msg.sender] = true;\r\n        vault.currentApprovals += 1;\r\n\r\n        emit TrusteeApproved(_vaultId, msg.sender, vault.currentApprovals);\r\n\r\n        // Auto-release once 2-of-3 threshold is reached\r\n        if (vault.currentApprovals >= vault.requiredApprovals) {\r\n            _executeRelease(_vaultId);\r\n        }\r\n    }\r\n\r\n    /**\r\n     * @notice Explicit release function once conditions are satisfied.\r\n     */\r\n    function release(uint256 _vaultId) external nonReentrant {\r\n        Vault storage vault = vaults[_vaultId];\r\n        require(!vault.isReleased, \"Vault already released\");\r\n        require(!vault.isCanceled, \"Vault canceled\");\r\n        require(block.timestamp >= vault.lastPing + vault.pingInterval, \"Inactivity timeout not reached\");\r\n        require(vault.currentApprovals >= vault.requiredApprovals, \"Need at least 2 trustee approvals\");\r\n\r\n        _executeRelease(_vaultId);\r\n    }\r\n\r\n    function _executeRelease(uint256 _vaultId) internal {\r\n        Vault storage vault = vaults[_vaultId];\r\n        vault.isReleased = true;\r\n        emit VaultReleased(_vaultId, vault.secretDataOrIpfs, vault.beneficiary);\r\n    }\r\n\r\n    /**\r\n     * @notice Owner can cancel and revoke the vault anytime before release.\r\n     */\r\n    function cancelVault(uint256 _vaultId) external onlyVaultOwner(_vaultId) {\r\n        Vault storage vault = vaults[_vaultId];\r\n        require(!vault.isReleased, \"Cannot cancel released vault\");\r\n        require(!vault.isCanceled, \"Already canceled\");\r\n\r\n        vault.isCanceled = true;\r\n        emit VaultCanceled(_vaultId);\r\n    }\r\n\r\n    // View functions for frontend & trustees\r\n    function getTrustees(uint256 _vaultId) external view returns (address[] memory) {\r\n        return _vaultTrustees[_vaultId];\r\n    }\r\n\r\n    function getVault(uint256 _vaultId) external view returns (Vault memory) {\r\n        return vaults[_vaultId];\r\n    }\r\n\r\n    function isExpired(uint256 _vaultId) external view returns (bool) {\r\n        Vault memory vault = vaults[_vaultId];\r\n        return block.timestamp >= vault.lastPing + vault.pingInterval;\r\n    }\r\n}"
+      }
+    }
+  }
+}

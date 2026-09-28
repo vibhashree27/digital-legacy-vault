@@ -1,0 +1,20 @@
+# 1. Dependency directories (Never push node_modules)
+node_modules/
+
+# 2. Environment variables & Secrets
+.env
+.env.*
+*.secret
+keystore.json
+
+# 3. Hardhat build outputs & compiler caches
+artifacts/
+cache/
+typechain-types/
+
+# 4. Hardhat ignition deployment journal (optional, but keep ignition module code)
+ignition/deployments/chain-31337/
+
+# 5. Operating system files
+.DS_Store
+Thumbs.db
