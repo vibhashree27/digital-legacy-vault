@@ -1,4 +1,4 @@
-# 🛡️ Digital Legacy Vault — Powered by MST Blockchain
+#  Digital Legacy Vault — Powered by MST Blockchain
 
 > A decentralized, trustless Dead Man's Switch for digital assets and sensitive credentials, secured by dual-condition consensus on the MST Blockchain.
 
@@ -8,14 +8,14 @@
 
 ---
 
-## 1. 💡 Problem Statement
+## 1.  Problem Statement
 People store valuable digital assets, passwords, instructions, and seed phrases across various online platforms and cold wallets. If an individual unexpectedly becomes incapacitated or unavailable, family members and heirs often have no way to access these critical assets.
 
 Centralized solutions introduce custodial risk, single points of failure, and middleman vulnerabilities. Traditional blockchain dead man's switches rely solely on an inactivity timer, making them prone to catastrophic accidental releases if the owner is simply traveling without internet access.
 
 ---
 
-## 2. 🚀 The Solution: Dual-Condition Consensus
+## 2.  The Solution: Dual-Condition Consensus
 **Digital Legacy Vault** introduces a resilient, trustless succession architecture:
 1. **Inactivity Timer:** The owner regularly pings the smart contract ("I'm still here").
 2. **Multi-Trustee Verification Stage:** If the inactivity timer expires, the vault enters a verification stage. The secret is **never released on a timer alone**.
@@ -24,7 +24,7 @@ Centralized solutions introduce custodial risk, single points of failure, and mi
 
 ---
 
-## 3. ⛓️ Meaningful MST Blockchain Usage
+## 3.  Meaningful MST Blockchain Usage
 MST Blockchain serves as the **core state machine and trust layer** of the platform:
 - **Immutable State Machine:** All vault parameters (inactivity windows, last check-in timestamps, approvals, and trustee registries) are enforced entirely on-chain.
 - **Dual-Condition Verification:** Cryptographically validates that both the timeout condition and the $M$-of-$N$ signature threshold are satisfied before emitting the `VaultReleased` event.
@@ -32,7 +32,7 @@ MST Blockchain serves as the **core state machine and trust layer** of the platf
 
 ---
 
-## 4. 📍 Deployed Contracts on MST Testnet
+## 4.  Deployed Contracts on MST Testnet
 
 - **Network:** MST Testnet
 - **Chain ID:** `91562037` (`0x5752035`)
@@ -47,7 +47,7 @@ MST Blockchain serves as the **core state machine and trust layer** of the platf
 
 ---
 
-## 5. 🔑 Official BridgeKey Wallet Integration
+## 5.  Official BridgeKey Wallet Integration
 Digital Legacy Vault integrates with **BridgeKey**, the official non-custodial wallet of MST Blockchain:
 - **EIP-3085 Auto-Switching:** Detects current network and prompts one-click switching to MST Testnet (`91562037`).
 - **Cryptographic Signing:** Uses BridgeKey to sign vault creations, owner check-in pings, and trustee consensus approvals.
@@ -55,7 +55,7 @@ Digital Legacy Vault integrates with **BridgeKey**, the official non-custodial w
 
 ---
 
-## 6. 🛠️ Tech Stack & Architecture
+## 6.  Tech Stack & Architecture
 - **Smart Contracts:** Solidity `^0.8.28`, Hardhat 3, Hardhat Ignition
 - **Frontend:** React 19, TypeScript, Vite, Ethers.js v6
 - **Wallet Provider:** BridgeKey Chromium Extension
@@ -63,7 +63,7 @@ Digital Legacy Vault integrates with **BridgeKey**, the official non-custodial w
 
 ---
 
-## 7. 🚀 Local Setup & Installation
+## 7.  Local Setup & Installation
 
 ### Smart Contract Development
 ```bash
